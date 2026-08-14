@@ -1,0 +1,11 @@
+services:
+  app:
+    build: .
+    ports:
+      - "${APP_PORT:-3000}:3000"
+    env_file:
+      - .env
+    volumes:
+      - ./context:/app/context
+      - ./outputs:/app/outputs
+    restart: unless-stopped
