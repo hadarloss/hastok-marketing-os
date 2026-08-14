@@ -1,0 +1,27 @@
+import type { Metadata } from "next";
+import { Heebo } from "next/font/google";
+import { DirectionProvider } from "@base-ui/react/direction-provider";
+import { AppShell } from "@/components/layout/AppShell";
+import "./globals.css";
+
+const heebo = Heebo({
+  variable: "--font-sans",
+  subsets: ["hebrew", "latin"],
+});
+
+export const metadata: Metadata = {
+  title: "צוות ה-AI שלי",
+  description: "דשבורד לניהול צוותי שיווק ומיתוג מבוססי AI",
+};
+
+export default function RootLayout({ children }: LayoutProps<"/">) {
+  return (
+    <html lang="he" dir="rtl" className={`${heebo.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col bg-background text-foreground">
+        <DirectionProvider direction="rtl">
+          <AppShell>{children}</AppShell>
+        </DirectionProvider>
+      </body>
+    </html>
+  );
+}
