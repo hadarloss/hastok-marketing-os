@@ -44,3 +44,12 @@ next-env.d.ts
 # Claude Code runtime state (session locks, worktrees) — not project content
 .claude/scheduled_tasks.lock
 .claude/worktrees/
+
+# Runtime data — real business profile / memory log / saved outputs, written
+# by actual use. Only the *.template.md files and outputs/**/.gitkeep are
+# tracked, so redeploys (git pull) never overwrite live data. See
+# lib/fs/paths.ts (ensureSeededFromTemplate) and Dockerfile.
+context/BUSINESS_PROFILE.md
+context/MEMORY_LOG.md
+outputs/**/*.md
+outputs/**/*.meta.json

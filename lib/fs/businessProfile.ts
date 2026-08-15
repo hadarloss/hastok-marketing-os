@@ -1,10 +1,13 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { ensureSeededFromTemplate } from "@/lib/fs/paths";
 
 const CONTEXT_DIR = path.join(process.cwd(), "context");
 const BUSINESS_PROFILE_PATH = path.join(CONTEXT_DIR, "BUSINESS_PROFILE.md");
+const TEMPLATE_PATH = path.join(CONTEXT_DIR, "BUSINESS_PROFILE.template.md");
 
 export async function readBusinessProfile(): Promise<string> {
+  await ensureSeededFromTemplate(BUSINESS_PROFILE_PATH, TEMPLATE_PATH);
   return fs.readFile(BUSINESS_PROFILE_PATH, "utf-8");
 }
 

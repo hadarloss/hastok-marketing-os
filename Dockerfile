@@ -6,6 +6,11 @@
 # `outputs/` are also bind-mounted by docker-compose.yml so writes made while
 # the app is running (business profile edits, memory log entries, saved
 # outputs) persist across container restarts/rebuilds instead of being lost.
+# The real data files (BUSINESS_PROFILE.md, MEMORY_LOG.md, saved outputs) are
+# gitignored — only the *.template.md files and outputs/**/.gitkeep are
+# tracked, so `git pull` + redeploy can never overwrite live data with
+# whatever's in the repo (lib/fs/paths.ts seeds the real file from the
+# template only if it doesn't already exist).
 
 FROM node:26-alpine AS deps
 WORKDIR /app
