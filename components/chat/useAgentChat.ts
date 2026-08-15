@@ -26,6 +26,10 @@ interface UseAgentChatOptions {
   team?: Team;
 }
 
+function hasContent(content: string | MessageContentBlock[]): boolean {
+  return content.length > 0;
+}
+
 function buildOutgoingContent(
   text: string,
   attachments: PendingAttachment[]
@@ -50,13 +54,26 @@ export function useAgentChat({ agentId, team }: UseAgentChatOptions) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const dropTrailingEmptyAssistant = useCallback(() => {
+    setMessages((prev) => {
+      const last = prev[prev.length - 1];
+      if (last && last.role === "assistant" && !hasContent(last.content)) {
+        return prev.slice(0, -1);
+      }
+      return prev;
+    });
+  }, []);
+
   const sendMessage = useCallback(
     async (text: string, attachments: PendingAttachment[] = []) => {
       if ((!text.trim() && attachments.length === 0) || isStreaming) return;
       setError(null);
       setRouting(null);
 
-      const history = messages.map((m) => ({ role: m.role, content: m.content }));
+      // Drop any earlier turn left with empty content (e.g. an assistant reply that
+      // errored out before any text arrived) — the API rejects empty message content,
+      // and without this a single failed turn would permanently break the conversation.
+      const history = messages.filter((m) => hasContent(m.content)).map((m) => ({ role: m.role, content: m.content }));
       const outgoingContent = buildOutgoingContent(text, attachments);
       const attachmentLabels = attachments.length > 0 ? attachments.map((a) => a.filename) : undefined;
 
@@ -126,16 +143,18 @@ export function useAgentChat({ agentId, team }: UseAgentChatOptions) {
               });
             } else if (event.type === "error") {
               setError(event.message);
+              dropTrailingEmptyAssistant();
             }
           }
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : String(e));
+        dropTrailingEmptyAssistant();
       } finally {
         setIsStreaming(false);
       }
     },
-    [messages, activeAgentId, team, isStreaming]
+    [messages, activeAgentId, team, isStreaming, dropTrailingEmptyAssistant]
   );
 
   return { messages, sendMessage, isStreaming, error, routing, activeAgentId };
