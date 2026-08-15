@@ -7,6 +7,7 @@ import { RoutingBreadcrumb, type AgentLite } from "@/components/chat/RoutingBrea
 import type { ChatMessage, RoutingInfo } from "@/components/chat/useAgentChat";
 import { extractText } from "@/components/chat/utils";
 import { processFile, type PendingAttachment } from "@/components/chat/fileAttachments";
+import { useVoiceInput } from "@/components/chat/useVoiceInput";
 import type { Team } from "@/lib/agents/types";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +52,14 @@ export function ChatPanel({
   const [processingFiles, setProcessingFiles] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const {
+    isSupported: voiceSupported,
+    isRecording,
+    error: voiceError,
+    start: startVoice,
+    stop: stopVoice,
+  } = useVoiceInput({ onTranscriptChange: setDraft });
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
@@ -107,7 +116,7 @@ export function ChatPanel({
       </div>
 
       <div className="border-t border-border p-3 pb-5 flex flex-col gap-2">
-        {(attachments.length > 0 || attachError) && (
+        {(attachments.length > 0 || attachError || voiceError) && (
           <div className="flex flex-wrap gap-1.5">
             {attachments.map((att) => (
               <span
@@ -127,6 +136,7 @@ export function ChatPanel({
               </span>
             ))}
             {attachError && <span className="text-xs text-destructive self-center">{attachError}</span>}
+            {voiceError && <span className="text-xs text-destructive self-center">{voiceError}</span>}
           </div>
         )}
 
@@ -149,6 +159,19 @@ export function ChatPanel({
           >
             📎
           </Button>
+          {voiceSupported && (
+            <Button
+              type="button"
+              variant={isRecording ? "destructive" : "outline"}
+              size="icon"
+              title={isRecording ? "עצירת הקלטה" : "הקלטה קולית — דברו במקום להקליד"}
+              onClick={() => (isRecording ? stopVoice() : startVoice(draft))}
+              disabled={isStreaming}
+              className={isRecording ? "animate-pulse" : undefined}
+            >
+              {isRecording ? "⏹️" : "🎤"}
+            </Button>
+          )}
           <Textarea
             value={draft}
             onChange={(e) => setDraft(e.target.value)}

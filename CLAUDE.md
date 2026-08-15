@@ -19,10 +19,16 @@ npm run dev                     # מריץ על http://localhost:3000
 
 ## הרצה דרך Docker (פריסה לשרת)
 ```bash
-cp .env.example .env             # להזין ANTHROPIC_API_KEY (וגם OPENAI_API_KEY אם צריך); אופציונלי: APP_PORT
-docker compose up -d --build     # בונה ומריץ, זמין ב-http://<host>:3000 (או APP_PORT)
+cp .env.example .env             # להזין ANTHROPIC_API_KEY (וגם OPENAI_API_KEY/OMNIROUTE אם צריך), APP_USERNAME, APP_PASSWORD אמיתיים
+docker compose up -d --build     # בונה ומריץ app + caddy (+ omniroute אם צריך)
 ```
-`context/` ו-`outputs/` מחוברים כ-volumes (ראו `docker-compose.yml`) כדי שתיק העסק, יומן הזיכרון והתוצרים שנכתבים בזמן ריצה ישרדו ריסטארט/עדכון של הקונטיינר. **אין שכבת הרשאה באפליקציה עצמה** — אם חושפים אותה על IP:PORT ציבורי, יש לחסום גישה ברמת הפיירוול למי שצריך גישה בפועל.
+`context/` ו-`outputs/` מחוברים כ-volumes (ראו `docker-compose.yml`) כדי שתיק העסק, יומן הזיכרון והתוצרים שנכתבים בזמן ריצה ישרדו ריסטארט/עדכון של הקונטיינר.
+
+**זיכרון ששורד פריסות מחדש**: `context/BUSINESS_PROFILE.md` ו-`context/MEMORY_LOG.md` (הקבצים האמיתיים, לא ה-`.template.md`) וכל קובץ תוצר שנשמר תחת `outputs/` — **לא** נמצאים במעקב git (ראו `.gitignore`). רק תבניות ריקות (`*.template.md`) ו-`outputs/**/.gitkeep` מחויבות לריפו. `lib/fs/paths.ts` (`ensureSeededFromTemplate`) יוצר את הקובץ האמיתי מהתבנית **רק אם הוא עדיין לא קיים** — כך ש-`git pull` + `docker compose up -d --build` לעולם לא ידרסו מידע עסקי אמיתי שהוזן בזמן ריצה, גם אם התבנית עצמה משתנה בקוד. אם רוצים לאפס תיק עסק/יומן בכוונה — מוחקים את הקובץ האמיתי (לא את ה-template) והוא ייבנה מחדש מהתבנית בקריאה הבאה.
+
+**הרשאה**: [proxy.ts](proxy.ts) שומר על כל האתר (כולל ה-API) לפי `APP_USERNAME`/`APP_PASSWORD` ב-`.env`, דרך עמוד התחברות משלנו (`/login`) ועוגיית session חתומה — **לא** HTTP Basic Auth הדפדפני, כי הפרומפט הנייטיבי שלו לא עובד באופן עקבי בדפדפנים/webviews בנייד. אם `APP_USERNAME`/`APP_PASSWORD` ריקים, השער מדלג על עצמו (כדי לא לנעול פיתוח מקומי בלי `.env`). כניסה: `/login`. יציאה: כפתור "יציאה" בתחתית הסיידבר (קורא ל-`POST /api/auth/logout`). עוגיית ה-session חתומה כנגד `APP_PASSWORD` ([lib/auth/session.ts](lib/auth/session.ts)) — שינוי הסיסמה מנתק אוטומטית את כל מי שכבר מחובר.
+
+**HTTPS**: `docker-compose.yml` כולל שירות `caddy` (reverse proxy) שמנפיק ומחדש תעודת HTTPS אמיתית אוטומטית דרך Let's Encrypt — קונטיינר ה-`app` עצמו כבר לא חשוף ישירות לאינטרנט (`expose` בלבד, לא `ports`), רק Caddy על 80/443. הדומיין מוגדר ב-[Caddyfile](Caddyfile); כרגע זה `139-59-145-176.sslip.io` (שירות DNS חינמי שממפה כל כתובת IP לשם דומיין תואם — `<ip-עם-מקפים>.sslip.io`), כי אין עדיין דומיין אמיתי. **כשיהיה דומיין אמיתי**: להחליף את השורה הראשונה ב-`Caddyfile` לשם הדומיין (ולוודא שה-DNS שלו מצביע ל-IP של השרת), ואז `docker compose up -d` — Caddy יטפל בתעודה החדשה לבד.
 
 ## מפת תיקיות
 ```
@@ -79,7 +85,10 @@ model: claude-sonnet-5   # מזהה המודל אצל אותו provider; נית�
 
 **סדר עדיפות המודלים (fallback chain) לא מוגדר בקוד של המערכת הזו** — הוא מוגדר ב-**Dashboard** של OmniRoute עצמו (`http://localhost:20128` אחרי שהשירות רץ), דרך "Combo" עם אסטרטגיית `priority`: רשימה מסודרת של מודלים ש-OmniRoute מנסה אחד אחרי השני. ה-`model` בפרונטמאטר של הסוכן אז מצביע על שם ה-Combo שהוגדר שם.
 
-**סטטוס נוכחי**: השירות טרם הוקם/הופעל בפועל. כשתרצו להתחיל להגדיר את סדר המודלים בפועל (איזה Combo, איזה סדר עדיפות) — זו החלטה שממתינה לכם, לא הוחלטה מראש.
+**סטטוס נוכחי**: מוגדר וחי. 4 ספקים מחוברים (Gemini, Groq, OpenRouter, Z.AI/GLM) ו-5 קומבואים לפי ארכיטיפ תפקידי:
+`archetype-a-routing` (ניתוב), `archetype-b-critical-qa` (ביקורת), `archetype-c-strategic-foundational` (יסודות), `archetype-d-ongoing-content` (רוב הסוכנים), `archetype-e-high-volume-templates` (תבניות בנפח). כל 39 הסוכנים מוגדרים כרגע על `provider: omniroute` עם המודל המתאים.
+מודלי ה-fallback הספציפיים בכל קומבו מוגדרים ב-Dashboard של OmniRoute עצמו — לא בקוד של הריפו — ומבוססים על הקטלוג החי של המודלים שם, לא בהכרח על שמות המודלים המדויקים בכל תיעוד חיצוני.
+Mistral, Cerebras, SiliconFlow ו-Cloudflare AI **לא** חוברו — אם רוצים אותם, צריך מפתח API בפועל אצל אותו ספק, ואז `omniroute keys add <provider> <key>` (לרשימת ה-6 בקטלוג המובנה) או `omniroute nodes add --provider ... --base-url ...` (לספקים מותאמים אישית).
 
 ## תיקוני ספק שבוצעו (Known spec deviations)
 מסמך ה-`PROJECT_SPEC.md` המקורי הכיל שתי אי-התאמות; שתיהן טופלו וקבועות מכאן ואילך:

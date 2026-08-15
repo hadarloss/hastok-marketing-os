@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Heebo } from "next/font/google";
 import { DirectionProvider } from "@base-ui/react/direction-provider";
-import { AppShell } from "@/components/layout/AppShell";
 import "./globals.css";
 
 const heebo = Heebo({
@@ -14,13 +13,11 @@ export const metadata: Metadata = {
   description: "דשבורד לניהול צוותי שיווק ומיתוג מבוססי AI",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="he" dir="rtl" className={`${heebo.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col bg-background text-foreground">
-        <DirectionProvider direction="rtl">
-          <AppShell>{children}</AppShell>
-        </DirectionProvider>
+        <DirectionProvider direction="rtl">{children}</DirectionProvider>
       </body>
     </html>
   );

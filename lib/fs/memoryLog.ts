@@ -1,8 +1,10 @@
 import { promises as fs } from "fs";
 import path from "path";
+import { ensureSeededFromTemplate } from "@/lib/fs/paths";
 
 const CONTEXT_DIR = path.join(process.cwd(), "context");
 const MEMORY_LOG_PATH = path.join(CONTEXT_DIR, "MEMORY_LOG.md");
+const TEMPLATE_PATH = path.join(CONTEXT_DIR, "MEMORY_LOG.template.md");
 
 export type MemoryEntryType = "correction" | "new_rule" | "preference" | "note";
 
@@ -14,6 +16,7 @@ export interface MemoryEntry {
 }
 
 export async function readMemoryLog(): Promise<string> {
+  await ensureSeededFromTemplate(MEMORY_LOG_PATH, TEMPLATE_PATH);
   return fs.readFile(MEMORY_LOG_PATH, "utf-8");
 }
 
@@ -22,6 +25,7 @@ export async function appendMemoryEntry(entry: {
   type: MemoryEntryType;
   summary: string;
 }): Promise<void> {
+  await ensureSeededFromTemplate(MEMORY_LOG_PATH, TEMPLATE_PATH);
   const now = new Date();
   const stamp = now.toISOString().slice(0, 16).replace("T", " ");
   const block = [

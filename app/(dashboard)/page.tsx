@@ -6,6 +6,11 @@ import { readBusinessProfile, isProfileTemplate } from "@/lib/fs/businessProfile
 import { parseMemoryLog, readMemoryLog } from "@/lib/fs/memoryLog";
 import { listOutputs } from "@/lib/fs/outputs";
 
+// Reads live business profile / memory log / outputs from disk — must not be
+// statically cached at build time, or a production build would keep showing
+// a build-time snapshot forever instead of current data.
+export const dynamic = "force-dynamic";
+
 function extractBusinessName(profile: string): string | null {
   const match = profile.match(/^#\s*תיק העסק\s*—\s*(.+)$/m);
   const name = match?.[1]?.trim();

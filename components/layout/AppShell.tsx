@@ -26,6 +26,13 @@ function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
+async function handleLogout() {
+  await fetch("/api/auth/logout", { method: "POST" });
+  // Full navigation (not router.push) so proxy.ts re-checks with the now-cleared cookie.
+  // eslint-disable-next-line @next/next/no-location-assign-relative-destination
+  window.location.href = "/login";
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
@@ -53,11 +60,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </Link>
           ))}
         </nav>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="mt-auto flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-sidebar-foreground/60 hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+        >
+          <span aria-hidden>🚪</span>
+          <span>יציאה</span>
+        </button>
       </aside>
 
       <div className="flex-1 flex flex-col min-w-0">
         <header className="md:hidden border-b border-border p-3 flex flex-col gap-2">
-          <div className="text-sm font-semibold">צוות ה-AI שלי</div>
+          <div className="flex items-center justify-between">
+            <div className="text-sm font-semibold">צוות ה-AI שלי</div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="text-xs text-muted-foreground hover:text-foreground"
+            >
+              🚪 יציאה
+            </button>
+          </div>
           <nav className="flex gap-1 overflow-x-auto -mx-1 px-1 pb-1">
             {NAV_ITEMS.map((item) => (
               <Link
