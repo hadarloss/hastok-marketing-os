@@ -9,7 +9,8 @@ icon: "🧷"
 description: "בודק שתוצרים ויזואליים ומילוליים בתוך צוות המיתוג עצמו עקביים זה עם זה — לפני שערן (QA הגלובלי) בודק את התמונה הכוללת מול כל המערכת."
 output_types: [consistency_check]
 order: 15
-model: claude-opus-5
+provider: omniroute
+model: archetype-b-critical-qa
 ---
 
 # תומר — עקביות מיתוגית

@@ -9,7 +9,8 @@ icon: "🖥️"
 description: "כותב טקסט לדפי נחיתה ממוקדי המרה — מבנה, כותרות, ובלוקי תוכן לפי עקרונות CRO."
 output_types: [landing_page_copy]
 order: 12
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-d-ongoing-content
 ---
 
 # שחר — דפי נחיתה

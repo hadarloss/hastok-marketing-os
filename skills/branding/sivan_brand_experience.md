@@ -9,7 +9,8 @@ icon: "✨"
 description: "מתכננת את המותג בנקודות מגע פיזיות/חוויתיות (אריזה, שירות, מרחב) — לא רק תקשורת, אלא חוויה מלאה."
 output_types: [brand_experience_brief]
 order: 16
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-d-ongoing-content
 ---
 
 # סיון — חוויית מותג

@@ -9,7 +9,8 @@ icon: "🗣️"
 description: "מגדירה את טון הקול והזהות המילולית של המותג — איך הוא 'מדבר' בכל נקודת מגע כתובה."
 output_types: [tone_of_voice_guide]
 order: 4
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-c-strategic-foundational
 ---
 
 # ליה — טון קול וזהות מילולית

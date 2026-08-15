@@ -12,14 +12,14 @@
 ## Quickstart
 ```bash
 npm install                     # פעם ראשונה בלבד
-cp .env.example .env.local      # ואז להזין ANTHROPIC_API_KEY אמיתי בקובץ
+cp .env.example .env.local      # ואז להזין ANTHROPIC_API_KEY (וגם OPENAI_API_KEY אם צריך) בקובץ
 npm run dev                     # מריץ על http://localhost:3000
 ```
-בלי `ANTHROPIC_API_KEY` תקין ב-`.env.local`, הדשבורד יעלה אבל שיחות עם סוכנים יחזירו שגיאה ברורה (לא קריסה).
+בלי `ANTHROPIC_API_KEY` תקין ב-`.env.local`, הדשבורד יעלה אבל שיחות עם סוכנים יחזירו שגיאה ברורה (לא קריסה). `OPENAI_API_KEY` נדרש **רק** אם יש סוכן עם `provider: openai` בפרונטמאטר שלו (ברירת המחדל היא `anthropic`) — ראו "שני ספקי מודל" למטה.
 
 ## הרצה דרך Docker (פריסה לשרת)
 ```bash
-cp .env.example .env             # להזין ANTHROPIC_API_KEY אמיתי; אופציונלי: APP_PORT
+cp .env.example .env             # להזין ANTHROPIC_API_KEY (וגם OPENAI_API_KEY אם צריך); אופציונלי: APP_PORT
 docker compose up -d --build     # בונה ומריץ, זמין ב-http://<host>:3000 (או APP_PORT)
 ```
 `context/` ו-`outputs/` מחוברים כ-volumes (ראו `docker-compose.yml`) כדי שתיק העסק, יומן הזיכרון והתוצרים שנכתבים בזמן ריצה ישרדו ריסטארט/עדכון של הקונטיינר. **אין שכבת הרשאה באפליקציה עצמה** — אם חושפים אותה על IP:PORT ציבורי, יש לחסום גישה ברמת הפיירוול למי שצריך גישה בפועל.
@@ -29,8 +29,10 @@ docker compose up -d --build     # בונה ומריץ, זמין ב-http://<host
 context/                # הזיכרון — תיק עסק (סטטי) + יומן דינאמי (append-only)
 skills/                 # 39 קבצי סוכן: onboarding, quality_assurance, leads/*, marketing/*, branding/*
 outputs/                # תוצרים שנשמרים מהדשבורד (קמפיינים / נכסי מיתוג)
-lib/agents/             # registry.ts (parsing+validation), router.ts (ניתוב היררכי), types.ts
-lib/anthropic/          # קליינט ה-API
+lib/agents/             # registry.ts (parsing+validation), router.ts (ניתוב היררכי + דיספאץ' לפי provider), types.ts
+lib/anthropic/          # קליינט Anthropic API
+lib/openai/             # קליינט OpenAI API (Responses API) — משמש סוכנים עם provider: openai
+lib/omniroute/          # קליינט OmniRoute (Chat Completions API) — משמש סוכנים עם provider: omniroute
 lib/fs/                 # קריאה/כתיבה ל-context/ ו-outputs/
 app/                    # עמודי הדשבורד + app/api/* (route handlers)
 components/              # רכיבי UI (chat, layout, shadcn primitives)
@@ -56,10 +58,28 @@ icon: "אימוג'י"
 description: "תיאור קצר לכרטיס בחירה ולפרומפט הניתוב של המנהל"
 output_types: [type1, type2]
 order: number
-model: claude-sonnet-5   # ניתן לדריסה לכל סוכן
+provider: anthropic     # anthropic (ברירת מחדל) | openai | omniroute — קובע איזה API/SDK ישמש לסוכן הזה
+model: claude-sonnet-5   # מזהה המודל אצל אותו provider; ניתן לדריסה לכל סוכן
 ```
 
 **בחירת מודל לפי תפקיד**: ברירת המחדל היא `claude-sonnet-5` (כתיבה יצירתית/תוכן — רוב 35 הסוכנים). שני מנהלי הצוות (גיא, ריי) על `claude-haiku-4-5-20251001` — תפקידם הוא רק החלטת ניתוב מובנית (tool-use), אז מודל מהיר וזול מספיק ומשפר את זמן התגובה בתחילת כל שיחה. ערן (QA גלובלי) ותומר (עקביות מיתוגית) על `claude-opus-5` — תפקידם ביקורתי/השוואתי ולא בציר החם, אז שווה את זמן/עלות המודל החזק יותר לטובת דיוק הבדיקה.
+
+## שלושה ספקי מודל (Anthropic + OpenAI + OmniRoute)
+כל סוכן בוחר ספק דרך שדה `provider` בפרונטמאטר (`anthropic` בברירת מחדל, `openai`, או `omniroute`). `lib/agents/router.ts` מנתב כל קריאה — גם ניתוב ההיררכיה (`routeToAgent`) וגם תשובת המומחה בסטרימינג (`streamAgentReply`) — לפי `provider` של הסוכן הרלוונטי:
+- `provider: anthropic` (ברירת מחדל) → `lib/anthropic/client.ts`, Messages API, `model` הוא מזהה Claude (למשל `claude-sonnet-5`).
+- `provider: openai` → `lib/openai/client.ts`, Responses API (`client.responses.create`), `model` הוא מזהה OpenAI (למשל `gpt-5.1`, `gpt-5.6-terra`).
+- `provider: omniroute` → `lib/omniroute/client.ts`, Chat Completions API (`client.chat.completions.create` — לא Responses API; זה ה-endpoint היחיד שמאומת כנתמך אצל OmniRoute), `model` הוא `"auto"` (ברירת מחדל, ניתוב אוטומטי של OmniRoute עצמו) או מזהה קומבו ספציפי שהוגדר בדשבורד של OmniRoute.
+
+**כדי "לפרוס מחדש" סוכן על ספק אחר**: לשנות בקובץ ה-`skills/*.md` שלו את `provider` ואת `model` יחד למזהה המתאים לספק החדש — אין ברירת מחדל בין ספקים למודל. אין צורך בשינוי קוד נוסף.
+
+**מפתחות/הגדרות**: `ANTHROPIC_API_KEY` נדרש תמיד (גם מנהלי הצוות דורשים אותו כברירת מחדל). `OPENAI_API_KEY` נדרש רק אם סוכן בפועל (או מנהל צוות) עם `provider: openai` מעורב בבקשה. `OMNIROUTE_BASE_URL` (ו-`OMNIROUTE_API_KEY` אופציונלי) נדרש רק אם סוכן עם `provider: omniroute` מעורב — כולם ב-`.env.local` (dev) או `.env` (Docker), ראו `.env.example`. `app/api/chat/route.ts` בודק מראש (לפני פתיחת ה-stream) אילו ספקים ה-request הזה עלול להגיע אליהם ומחזיר שגיאת JSON ברורה אם ההגדרה הרלוונטית חסרה.
+
+### OmniRoute — שער ריבוי-ספקים חינמי (self-hosted)
+[OmniRoute](https://github.com/diegosouzapw/OmniRoute) הוא שער MIT/open-source, ללא עלות מעבר לעלויות ה-API הישירות של הספקים שמאחוריו (340+ ספקים, כולל שכבה חינמית אצל חלקם) — מתארח עצמאית דרך `docker-compose.yml` (שירות `omniroute`, אימג' `diegosouzapw/omniroute:latest`, פורט `20128`, קבוע ל-volume `omniroute-data`).
+
+**סדר עדיפות המודלים (fallback chain) לא מוגדר בקוד של המערכת הזו** — הוא מוגדר ב-**Dashboard** של OmniRoute עצמו (`http://localhost:20128` אחרי שהשירות רץ), דרך "Combo" עם אסטרטגיית `priority`: רשימה מסודרת של מודלים ש-OmniRoute מנסה אחד אחרי השני. ה-`model` בפרונטמאטר של הסוכן אז מצביע על שם ה-Combo שהוגדר שם.
+
+**סטטוס נוכחי**: השירות טרם הוקם/הופעל בפועל. כשתרצו להתחיל להגדיר את סדר המודלים בפועל (איזה Combo, איזה סדר עדיפות) — זו החלטה שממתינה לכם, לא הוחלטה מראש.
 
 ## תיקוני ספק שבוצעו (Known spec deviations)
 מסמך ה-`PROJECT_SPEC.md` המקורי הכיל שתי אי-התאמות; שתיהן טופלו וקבועות מכאן ואילך:

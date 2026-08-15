@@ -5,7 +5,9 @@ import { routeToAgent, streamAgentReply, ConversationMessage } from "@/lib/agent
 import { readBusinessProfile } from "@/lib/fs/businessProfile";
 import { readMemoryLog } from "@/lib/fs/memoryLog";
 import { getAnthropicClient, MissingApiKeyError } from "@/lib/anthropic/client";
-import { ChatStreamEvent, Team } from "@/lib/agents/types";
+import { getOpenAIClient, MissingOpenAIApiKeyError } from "@/lib/openai/client";
+import { getOmniRouteClient, MissingOmniRouteConfigError } from "@/lib/omniroute/client";
+import { AgentDef, ChatStreamEvent, Provider, Team } from "@/lib/agents/types";
 
 // Generous but bounded cap on a single attachment's base64 payload (~15MB raw file).
 const MAX_BASE64_LENGTH = 20_000_000;
@@ -61,11 +63,44 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Fail fast on missing API key with a clean JSON error instead of an opening a stream that immediately errors.
+  // Resolve which agent(s) this request can touch up front — direct agent, or the team's
+  // lead plus every specialist it might route to (the routing decision isn't known yet).
+  let directAgent: AgentDef | null = null;
+  let leadAgent: AgentDef | null = null;
+  let specialists: AgentDef[] = [];
+
+  if (agentId) {
+    directAgent = await getAgentById(agentId);
+    if (!directAgent) {
+      return Response.json({ error: `סוכן לא נמצא: ${agentId}` }, { status: 400 });
+    }
+  } else {
+    const tree = await getTeamTree(team as Team);
+    leadAgent = tree.lead;
+    specialists = tree.specialists;
+    if (!leadAgent) {
+      return Response.json({ error: `לא נמצא מנהל צוות עבור ${team}` }, { status: 400 });
+    }
+  }
+
+  // Fail fast on a missing API key (for every provider this request could reach) with a
+  // clean JSON error, instead of opening a stream that immediately errors.
+  const providersNeeded = new Set<Provider>();
+  for (const a of [directAgent, leadAgent, ...specialists]) {
+    if (a) providersNeeded.add(a.provider);
+  }
   try {
-    getAnthropicClient();
+    for (const provider of providersNeeded) {
+      if (provider === "openai") getOpenAIClient();
+      else if (provider === "omniroute") getOmniRouteClient();
+      else getAnthropicClient();
+    }
   } catch (error) {
-    if (error instanceof MissingApiKeyError) {
+    if (
+      error instanceof MissingApiKeyError ||
+      error instanceof MissingOpenAIApiKeyError ||
+      error instanceof MissingOmniRouteConfigError
+    ) {
       return Response.json({ error: error.message }, { status: 500 });
     }
     throw error;
@@ -81,25 +116,18 @@ export async function POST(req: NextRequest) {
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        let targetAgentId = agentId ?? null;
+        let agent = directAgent;
 
-        if (!targetAgentId && team) {
-          const { lead, specialists } = await getTeamTree(team as Team);
-          if (!lead) {
-            controller.enqueue(sseLine({ type: "error", message: `לא נמצא מנהל צוות עבור ${team}` }));
-            controller.close();
-            return;
-          }
-          const decision = await routeToAgent(lead, specialists, fullHistory, businessProfile, memoryLog);
-          targetAgentId = decision.agentId;
+        if (!agent && leadAgent) {
+          const decision = await routeToAgent(leadAgent, specialists, fullHistory, businessProfile, memoryLog);
+          agent = specialists.find((s) => s.id === decision.agentId) ?? null;
           controller.enqueue(
-            sseLine({ type: "routing", from: lead.id, to: decision.agentId, reason: decision.reason })
+            sseLine({ type: "routing", from: leadAgent.id, to: decision.agentId, reason: decision.reason })
           );
         }
 
-        const agent = await getAgentById(targetAgentId!);
         if (!agent) {
-          controller.enqueue(sseLine({ type: "error", message: `סוכן לא נמצא: ${targetAgentId}` }));
+          controller.enqueue(sseLine({ type: "error", message: "סוכן לא נמצא לאחר ניתוב." }));
           controller.close();
           return;
         }

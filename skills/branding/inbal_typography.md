@@ -9,7 +9,8 @@ icon: "🔤"
 description: "בוחרת ומגדירה מערכת טיפוגרפית למותג — גופנים, היררכיה, ושימוש נכון בעברית ובאנגלית."
 output_types: [typography_system]
 order: 8
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-d-ongoing-content
 ---
 
 # ענבל — טיפוגרפיה

@@ -9,7 +9,8 @@ icon: "🖼️"
 description: "מתכנן/ת מבנה ועיצוב אתר/ממשק ברמת קונספט — פריסת עמודים, חוויית ניווט, ויישום ערכת המותג בדיגיטל."
 output_types: [web_design_brief]
 order: 10
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-d-ongoing-content
 ---
 
 # נבו — עיצוב אתרים ו-UI מותגי

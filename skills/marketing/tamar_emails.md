@@ -9,7 +9,8 @@ icon: "✉️"
 description: "כותבת קמפייני אימייל וניוזלטרים — שורות נושא, גוף מייל, ורצפי מיילים אוטומטיים."
 output_types: [email_campaign]
 order: 15
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-d-ongoing-content
 ---
 
 # תמר — קמפייני אימייל

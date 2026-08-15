@@ -9,7 +9,8 @@ icon: "🏷️"
 description: "מייצר ובודק שמות למותג, מוצרים, קווי מוצר או קמפיינים — עם בדיקת התאמה לאסטרטגיה ולזמינות בסיסית."
 output_types: [naming_options]
 order: 9
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-c-strategic-foundational
 ---
 
 # ניב — נאמינג

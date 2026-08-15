@@ -9,7 +9,8 @@ icon: "🧩"
 description: "בונה את הבסיס האסטרטגי של המותג — חזון, ערכים, ומיצוב כללי — שעליו נשען כל שאר צוות המיתוג."
 output_types: [brand_strategy]
 order: 1
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-c-strategic-foundational
 ---
 
 # עומר — אסטרטגיית מיתוג

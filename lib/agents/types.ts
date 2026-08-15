@@ -6,6 +6,9 @@ export type Team = z.infer<typeof TeamSchema>;
 export const AgentKindSchema = z.enum(["lead", "specialist", "core"]);
 export type AgentKind = z.infer<typeof AgentKindSchema>;
 
+export const ProviderSchema = z.enum(["anthropic", "openai", "omniroute"]);
+export type Provider = z.infer<typeof ProviderSchema>;
+
 export const AgentFrontmatterSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1),
@@ -17,6 +20,8 @@ export const AgentFrontmatterSchema = z.object({
   description: z.string().min(1),
   output_types: z.array(z.string()).default([]),
   order: z.number().default(0),
+  /** Which API this agent's `model` id belongs to. Defaults to anthropic for backward compatibility. */
+  provider: ProviderSchema.default("anthropic"),
   model: z.string().default("claude-sonnet-5"),
 });
 

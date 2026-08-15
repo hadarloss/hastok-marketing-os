@@ -9,7 +9,8 @@ icon: "🚀"
 description: "בונה תוכנית השקה למותג חדש/מרוענן — רצף שלבים, תזמון, ותיאום בין צוותי המיתוג והשיווק."
 output_types: [launch_plan]
 order: 17
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-c-strategic-foundational
 ---
 
 # איתי — השקת מותג

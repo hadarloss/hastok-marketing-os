@@ -9,7 +9,8 @@ icon: "✅"
 description: "בודק תוצרים מוגמרים (משיווק או ממיתוג) מול תיק העסק והיומן, ומחזיר משוב מדויק לפני פרסום."
 output_types: [qa_report]
 order: 2
-model: claude-opus-5
+provider: omniroute
+model: archetype-b-critical-qa
 ---
 
 # ערן — בקרת איכות ועקביות

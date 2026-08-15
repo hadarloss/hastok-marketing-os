@@ -9,7 +9,8 @@ icon: "💡"
 description: "מנסח את הצעת הערך המרכזית ואת מסרי הליבה של המותג — המשפטים שכל תוכן שיווקי נשען עליהם."
 output_types: [value_proposition, core_messages]
 order: 5
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-c-strategic-foundational
 ---
 
 # מתן — מסרים מרכזיים והצעת ערך

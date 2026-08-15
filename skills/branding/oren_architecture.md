@@ -9,7 +9,8 @@ icon: "🏛️"
 description: "מגדיר/ה את היחסים בין מותגים/קווי מוצר/תתי-מותג בתוך העסק — מבנה ברור למי שקורא לו יותר ממותג אחד."
 output_types: [brand_architecture]
 order: 11
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-c-strategic-foundational
 ---
 
 # אורן — ארכיטקטורת מותג

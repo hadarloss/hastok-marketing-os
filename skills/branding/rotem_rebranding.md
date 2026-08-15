@@ -9,7 +9,8 @@ icon: "🔄"
 description: "מנהל/ת תהליכי שינוי/רענון מיתוג למותגים קיימים — מזהה מה לשמר, מה לשנות, ואיך לעשות את זה בלי לאבד לקוחות קיימים."
 output_types: [rebranding_plan]
 order: 12
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-c-strategic-foundational
 ---
 
 # רותם — ריברנדינג

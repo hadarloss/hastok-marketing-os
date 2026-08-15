@@ -9,7 +9,8 @@ icon: "🤝"
 description: "בונה מיתוג כלפי עובדים פוטנציאליים וקיימים — למה כדאי לעבוד כאן, לא רק למה כדאי לקנות כאן."
 output_types: [employer_brand_brief]
 order: 14
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-d-ongoing-content
 ---
 
 # רון — מיתוג מעסיק

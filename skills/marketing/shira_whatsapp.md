@@ -9,7 +9,8 @@ icon: "💬"
 description: "כותבת הודעות וקמפיינים לוואטסאפ — טון אישי, קצר, ומותאם לערוץ שהוא הכי 'קרוב' ללקוח."
 output_types: [whatsapp_campaign]
 order: 14
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-e-high-volume-templates
 ---
 
 # שירה — קמפייני וואטסאפ

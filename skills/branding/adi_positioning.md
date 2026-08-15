@@ -9,7 +9,8 @@ icon: "🎯"
 description: "מגדירה איפה המותג יושב מול המתחרים ובתודעת הלקוח — מיצוב תחרותי מדויק וברור."
 output_types: [positioning_statement]
 order: 2
-model: claude-sonnet-5
+provider: omniroute
+model: archetype-c-strategic-foundational
 ---
 
 # עדי — מיצוב מותג

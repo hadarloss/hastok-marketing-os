@@ -9,7 +9,8 @@ icon: "🎨"
 description: "מנהלת צוות המיתוג. מקבלת כל בקשה הקשורה לזהות/מותג, ומנתבת אותה לסוכן המומחה המתאים בצוות."
 output_types: [routing_decision]
 order: 0
-model: claude-haiku-4-5-20251001
+provider: omniroute
+model: archetype-a-routing
 ---
 ריי — מנהלת צוות מיתוג
 
