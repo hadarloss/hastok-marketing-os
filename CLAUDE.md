@@ -24,7 +24,7 @@ docker compose up -d --build     # בונה ומריץ app + caddy
 ```
 `context/` ו-`outputs/` מחוברים כ-volumes (ראו `docker-compose.yml`) כדי שתיק העסק, יומן הזיכרון והתוצרים שנכתבים בזמן ריצה ישרדו ריסטארט/עדכון של הקונטיינר.
 
-**הרשאה**: [proxy.ts](proxy.ts) שומר HTTP Basic Auth על כל האתר (כולל ה-API) לפי `APP_USERNAME`/`APP_PASSWORD` ב-`.env`. אם שניהם ריקים, השער מדלג על עצמו (כדי לא לנעול פיתוח מקומי בלי `.env`).
+**הרשאה**: [proxy.ts](proxy.ts) שומר על כל האתר (כולל ה-API) לפי `APP_USERNAME`/`APP_PASSWORD` ב-`.env`, דרך עמוד התחברות משלנו (`/login`) ועוגיית session חתומה — **לא** HTTP Basic Auth הדפדפני, כי הפרומפט הנייטיבי שלו לא עובד באופן עקבי בדפדפנים/webviews בנייד. אם `APP_USERNAME`/`APP_PASSWORD` ריקים, השער מדלג על עצמו (כדי לא לנעול פיתוח מקומי בלי `.env`). כניסה: `/login`. יציאה: כפתור "יציאה" בתחתית הסיידבר (קורא ל-`POST /api/auth/logout`). עוגיית ה-session חתומה כנגד `APP_PASSWORD` ([lib/auth/session.ts](lib/auth/session.ts)) — שינוי הסיסמה מנתק אוטומטית את כל מי שכבר מחובר.
 
 **HTTPS**: `docker-compose.yml` כולל שירות `caddy` (reverse proxy) שמנפיק ומחדש תעודת HTTPS אמיתית אוטומטית דרך Let's Encrypt — קונטיינר ה-`app` עצמו כבר לא חשוף ישירות לאינטרנט (`expose` בלבד, לא `ports`), רק Caddy על 80/443. הדומיין מוגדר ב-[Caddyfile](Caddyfile); כרגע זה `139-59-145-176.sslip.io` (שירות DNS חינמי שממפה כל כתובת IP לשם דומיין תואם — `<ip-עם-מקפים>.sslip.io`), כי אין עדיין דומיין אמיתי. **כשיהיה דומיין אמיתי**: להחליף את השורה הראשונה ב-`Caddyfile` לשם הדומיין (ולוודא שה-DNS שלו מצביע ל-IP של השרת), ואז `docker compose up -d` — Caddy יטפל בתעודה החדשה לבד.
 

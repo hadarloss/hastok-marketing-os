@@ -1,21 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { timingSafeEqual } from "crypto";
+import { verifySessionToken, SESSION_COOKIE_NAME } from "@/lib/auth/session";
 
-function safeEqual(a: string, b: string): boolean {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) return false;
-  return timingSafeEqual(bufA, bufB);
-}
+// Native HTTP Basic Auth prompts are unreliable across mobile browsers/in-app
+// webviews (some never show a credential UI at all), so auth is a real login
+// page + signed session cookie instead — works identically everywhere.
+const PUBLIC_PATHS = ["/login", "/api/auth/login"];
 
-/**
- * HTTP Basic Auth gate for the whole app (pages + API routes), since the
- * costly resource here is the Anthropic API calls behind /api/chat, not
- * just the UI. Configure via APP_USERNAME / APP_PASSWORD env vars; if
- * either is unset, the gate is skipped (local dev without a .env stays
- * usable without locking anyone out).
- */
 export function proxy(request: NextRequest) {
   const expectedUser = process.env.APP_USERNAME;
   const expectedPass = process.env.APP_PASSWORD;
@@ -24,23 +15,23 @@ export function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  const authHeader = request.headers.get("authorization");
-  if (authHeader?.startsWith("Basic ")) {
-    const decoded = Buffer.from(authHeader.slice(6), "base64").toString("utf-8");
-    const sepIndex = decoded.indexOf(":");
-    if (sepIndex !== -1) {
-      const user = decoded.slice(0, sepIndex);
-      const pass = decoded.slice(sepIndex + 1);
-      if (safeEqual(user, expectedUser) && safeEqual(pass, expectedPass)) {
-        return NextResponse.next();
-      }
-    }
+  const { pathname } = request.nextUrl;
+  if (PUBLIC_PATHS.includes(pathname)) {
+    return NextResponse.next();
   }
 
-  return new NextResponse("Authentication required", {
-    status: 401,
-    headers: { "WWW-Authenticate": 'Basic realm="AI Team Workspace", charset="UTF-8"' },
-  });
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  if (verifySessionToken(token)) {
+    return NextResponse.next();
+  }
+
+  if (pathname.startsWith("/api")) {
+    return NextResponse.json({ error: "נדרשת התחברות מחדש." }, { status: 401 });
+  }
+
+  const loginUrl = new URL("/login", request.url);
+  loginUrl.searchParams.set("next", pathname);
+  return NextResponse.redirect(loginUrl);
 }
 
 export const config = {
