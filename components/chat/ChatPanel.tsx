@@ -5,6 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { RoutingBreadcrumb, type AgentLite } from "@/components/chat/RoutingBreadcrumb";
 import type { ChatMessage, RoutingInfo } from "@/components/chat/useAgentChat";
+import { extractText } from "@/components/chat/utils";
+import { processFile, type PendingAttachment } from "@/components/chat/fileAttachments";
 import type { Team } from "@/lib/agents/types";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +14,15 @@ export interface SaveContext {
   team: Team;
   deliverableType?: string;
 }
+
+const ATTACHMENT_ACCEPT =
+  ".txt,.md,.csv,.json,.yaml,.yml,.log,.tsv,.png,.jpg,.jpeg,.gif,.webp,.pdf,image/*,application/pdf";
+
+const ATTACHMENT_ICON: Record<PendingAttachment["kind"], string> = {
+  text: "📄",
+  image: "🖼️",
+  document: "📕",
+};
 
 export function ChatPanel({
   messages,
@@ -25,7 +36,7 @@ export function ChatPanel({
   saveContext,
 }: {
   messages: ChatMessage[];
-  onSend: (text: string) => void;
+  onSend: (text: string, attachments?: PendingAttachment[]) => void;
   isStreaming: boolean;
   error: string | null;
   routing: RoutingInfo | null;
@@ -35,16 +46,36 @@ export function ChatPanel({
   saveContext?: SaveContext;
 }) {
   const [draft, setDraft] = useState("");
+  const [attachments, setAttachments] = useState<PendingAttachment[]>([]);
+  const [attachError, setAttachError] = useState<string | null>(null);
+  const [processingFiles, setProcessingFiles] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages]);
 
   const handleSend = () => {
-    if (!draft.trim()) return;
-    onSend(draft);
+    if (!draft.trim() && attachments.length === 0) return;
+    onSend(draft, attachments);
     setDraft("");
+    setAttachments([]);
+  };
+
+  const handleFilesSelected = async (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    setAttachError(null);
+    setProcessingFiles(true);
+    try {
+      const processed = await Promise.all(Array.from(fileList).map(processFile));
+      setAttachments((prev) => [...prev, ...processed]);
+    } catch (e) {
+      setAttachError(e instanceof Error ? e.message : "שגיאה בקריאת הקובץ");
+    } finally {
+      setProcessingFiles(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -75,23 +106,66 @@ export function ChatPanel({
         <div ref={bottomRef} />
       </div>
 
-      <div className="border-t border-border p-3 flex gap-2 items-end">
-        <Textarea
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              handleSend();
-            }
-          }}
-          placeholder={placeholder}
-          disabled={isStreaming}
-          className="min-h-11"
-        />
-        <Button onClick={handleSend} disabled={isStreaming || !draft.trim()}>
-          {isStreaming ? "כותב..." : "שליחה"}
-        </Button>
+      <div className="border-t border-border p-3 pb-5 flex flex-col gap-2">
+        {(attachments.length > 0 || attachError) && (
+          <div className="flex flex-wrap gap-1.5">
+            {attachments.map((att) => (
+              <span
+                key={att.id}
+                className="inline-flex items-center gap-1 rounded-full bg-muted px-2.5 py-1 text-xs text-foreground"
+              >
+                <span aria-hidden>{ATTACHMENT_ICON[att.kind]}</span>
+                <span className="max-w-40 truncate">{att.filename}</span>
+                <button
+                  type="button"
+                  onClick={() => setAttachments((prev) => prev.filter((a) => a.id !== att.id))}
+                  className="text-muted-foreground hover:text-foreground"
+                  aria-label={`הסר ${att.filename}`}
+                >
+                  ✕
+                </button>
+              </span>
+            ))}
+            {attachError && <span className="text-xs text-destructive self-center">{attachError}</span>}
+          </div>
+        )}
+
+        <div className="flex gap-2 items-end">
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept={ATTACHMENT_ACCEPT}
+            className="hidden"
+            onChange={(e) => handleFilesSelected(e.target.files)}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            title="צירוף קובץ (טקסט, תמונה או PDF) — כך אפשר ללמד את הסוכן דברים בלי להקליד"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isStreaming || processingFiles}
+          >
+            📎
+          </Button>
+          <Textarea
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                handleSend();
+              }
+            }}
+            placeholder={placeholder}
+            disabled={isStreaming}
+            className="min-h-11"
+          />
+          <Button onClick={handleSend} disabled={isStreaming || (!draft.trim() && attachments.length === 0)}>
+            {isStreaming ? "כותב..." : "שליחה"}
+          </Button>
+        </div>
       </div>
     </div>
   );
@@ -112,8 +186,9 @@ function MessageBubble({
 }) {
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const isUser = message.role === "user";
+  const text = extractText(message.content);
   const showSave =
-    !isUser && saveContext && message.agentId && message.content && !(isLast && isStreaming);
+    !isUser && saveContext && message.agentId && text && !(isLast && isStreaming);
 
   const handleSave = async () => {
     if (!saveContext || !message.agentId) return;
@@ -125,7 +200,7 @@ function MessageBubble({
         body: JSON.stringify({
           team: saveContext.team,
           agentId: message.agentId,
-          content: message.content,
+          content: text,
           deliverableType: saveContext.deliverableType ?? "general",
         }),
       });
@@ -144,13 +219,25 @@ function MessageBubble({
           <span>{agent.name}</span>
         </div>
       )}
+      {message.attachmentLabels && message.attachmentLabels.length > 0 && (
+        <div className="flex flex-wrap gap-1 justify-end">
+          {message.attachmentLabels.map((label) => (
+            <span
+              key={label}
+              className="inline-flex items-center gap-1 rounded-full bg-muted/70 px-2 py-0.5 text-xs text-muted-foreground"
+            >
+              📎 {label}
+            </span>
+          ))}
+        </div>
+      )}
       <div
         className={cn(
           "rounded-2xl px-3.5 py-2.5 text-sm whitespace-pre-wrap leading-relaxed",
           isUser ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
         )}
       >
-        {message.content || (isLast && isStreaming ? "…" : "")}
+        {text || (isLast && isStreaming ? "…" : "")}
       </div>
       {showSave && (
         <button

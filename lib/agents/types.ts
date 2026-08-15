@@ -73,3 +73,32 @@ export interface ErrorEvent {
 }
 
 export type ChatStreamEvent = RoutingEvent | TokenEvent | DoneEvent | ErrorEvent;
+
+// --- Message content (text + file attachments) ---
+// A focused subset of Anthropic's content block shapes — structurally compatible
+// with Anthropic.MessageParam["content"], which is what these get passed as.
+
+export type ImageMediaType = "image/jpeg" | "image/png" | "image/gif" | "image/webp";
+
+export interface TextContentBlock {
+  type: "text";
+  text: string;
+}
+
+export interface ImageContentBlock {
+  type: "image";
+  source: { type: "base64"; media_type: ImageMediaType; data: string };
+}
+
+export interface DocumentContentBlock {
+  type: "document";
+  source: { type: "base64"; media_type: "application/pdf"; data: string };
+  title?: string;
+}
+
+export type MessageContentBlock = TextContentBlock | ImageContentBlock | DocumentContentBlock;
+
+export interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string | MessageContentBlock[];
+}

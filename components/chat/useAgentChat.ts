@@ -1,12 +1,16 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import type { Team } from "@/lib/agents/types";
+import type { Team, MessageContentBlock } from "@/lib/agents/types";
+import type { PendingAttachment } from "@/components/chat/fileAttachments";
 
 export interface ChatMessage {
+  /** What actually gets sent to the API / resent as history. */
   role: "user" | "assistant";
-  content: string;
+  content: string | MessageContentBlock[];
   agentId?: string;
+  /** Display-only file chips — not part of `content` for text attachments (those are inlined into the text). */
+  attachmentLabels?: string[];
 }
 
 export interface RoutingInfo {
@@ -22,6 +26,23 @@ interface UseAgentChatOptions {
   team?: Team;
 }
 
+function buildOutgoingContent(
+  text: string,
+  attachments: PendingAttachment[]
+): string | MessageContentBlock[] {
+  let finalText = text.trim();
+  for (const att of attachments) {
+    if (att.kind === "text") {
+      finalText += `\n\n---\nקובץ מצורף: ${att.filename}\n\`\`\`\n${att.textContent}\n\`\`\``;
+    }
+  }
+  if (!finalText) finalText = "(ראו קובץ מצורף)";
+
+  const blocks = attachments.map((a) => a.block).filter((b): b is MessageContentBlock => !!b);
+  if (blocks.length === 0) return finalText;
+  return [...blocks, { type: "text", text: finalText }];
+}
+
 export function useAgentChat({ agentId, team }: UseAgentChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeAgentId, setActiveAgentId] = useState<string | undefined>(agentId);
@@ -30,15 +51,18 @@ export function useAgentChat({ agentId, team }: UseAgentChatOptions) {
   const [error, setError] = useState<string | null>(null);
 
   const sendMessage = useCallback(
-    async (text: string) => {
-      if (!text.trim() || isStreaming) return;
+    async (text: string, attachments: PendingAttachment[] = []) => {
+      if ((!text.trim() && attachments.length === 0) || isStreaming) return;
       setError(null);
       setRouting(null);
 
       const history = messages.map((m) => ({ role: m.role, content: m.content }));
+      const outgoingContent = buildOutgoingContent(text, attachments);
+      const attachmentLabels = attachments.length > 0 ? attachments.map((a) => a.filename) : undefined;
+
       setMessages((prev) => [
         ...prev,
-        { role: "user", content: text },
+        { role: "user", content: outgoingContent, attachmentLabels },
         { role: "assistant", content: "", agentId: activeAgentId },
       ]);
       setIsStreaming(true);
@@ -53,7 +77,7 @@ export function useAgentChat({ agentId, team }: UseAgentChatOptions) {
           body: JSON.stringify({
             agentId: activeAgentId,
             team: activeAgentId ? undefined : team,
-            message: text,
+            message: outgoingContent,
             history,
           }),
         });

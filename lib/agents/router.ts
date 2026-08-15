@@ -1,10 +1,7 @@
 import { getAnthropicClient, DEFAULT_MODEL, MAX_TOKENS } from "@/lib/anthropic/client";
-import { AgentDef } from "@/lib/agents/types";
+import { AgentDef, ConversationMessage } from "@/lib/agents/types";
 
-export interface ConversationMessage {
-  role: "user" | "assistant";
-  content: string;
-}
+export type { ConversationMessage };
 
 export interface RoutingDecision {
   agentId: string;

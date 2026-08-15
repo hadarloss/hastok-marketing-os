@@ -7,12 +7,38 @@ import { readMemoryLog } from "@/lib/fs/memoryLog";
 import { getAnthropicClient, MissingApiKeyError } from "@/lib/anthropic/client";
 import { ChatStreamEvent, Team } from "@/lib/agents/types";
 
+// Generous but bounded cap on a single attachment's base64 payload (~15MB raw file).
+const MAX_BASE64_LENGTH = 20_000_000;
+
+const ContentBlockSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("text"), text: z.string().min(1) }),
+  z.object({
+    type: z.literal("image"),
+    source: z.object({
+      type: z.literal("base64"),
+      media_type: z.enum(["image/jpeg", "image/png", "image/gif", "image/webp"]),
+      data: z.string().max(MAX_BASE64_LENGTH),
+    }),
+  }),
+  z.object({
+    type: z.literal("document"),
+    source: z.object({
+      type: z.literal("base64"),
+      media_type: z.literal("application/pdf"),
+      data: z.string().max(MAX_BASE64_LENGTH),
+    }),
+    title: z.string().optional(),
+  }),
+]);
+
+const MessageContentSchema = z.union([z.string().min(1), z.array(ContentBlockSchema).min(1)]);
+
 const ChatRequestSchema = z.object({
   agentId: z.string().optional(),
   team: z.enum(["marketing", "branding"]).optional(),
-  message: z.string().min(1),
+  message: MessageContentSchema,
   history: z
-    .array(z.object({ role: z.enum(["user", "assistant"]), content: z.string() }))
+    .array(z.object({ role: z.enum(["user", "assistant"]), content: MessageContentSchema }))
     .default([]),
 });
 

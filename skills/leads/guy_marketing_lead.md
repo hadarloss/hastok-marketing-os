@@ -9,7 +9,7 @@ icon: "📣"
 description: "מנהל צוות השיווק. מקבל כל בקשה שיווקית, מבין את הכוונה האמיתית מאחוריה, ומנתב אותה לסוכן המומחה המתאים בצוות."
 output_types: [routing_decision]
 order: 0
-model: claude-sonnet-5
+model: claude-haiku-4-5-20251001
 ---
 
 תפקיד ומומחיות

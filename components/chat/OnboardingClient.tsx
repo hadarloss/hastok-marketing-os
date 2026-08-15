@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { useAgentChat } from "@/components/chat/useAgentChat";
 import { Button } from "@/components/ui/button";
+import { extractText } from "@/components/chat/utils";
 import type { AgentLite } from "@/components/chat/RoutingBreadcrumb";
 
 const PROFILE_MARKER = "# תיק העסק";
@@ -19,8 +20,8 @@ export function OnboardingClient({ agent }: { agent: AgentLite & { id: string } 
   const agentsById = { [agent.id]: { name: agent.name, icon: agent.icon } };
 
   const lastAssistant = [...messages].reverse().find((m) => m.role === "assistant");
-  const showProfileSave =
-    !isStreaming && lastAssistant && lastAssistant.content.includes(PROFILE_MARKER);
+  const lastAssistantText = lastAssistant ? extractText(lastAssistant.content) : "";
+  const showProfileSave = !isStreaming && lastAssistant && lastAssistantText.includes(PROFILE_MARKER);
 
   const handleSaveProfile = async () => {
     if (!lastAssistant) return;
@@ -29,7 +30,7 @@ export function OnboardingClient({ agent }: { agent: AgentLite & { id: string } 
       const res = await fetch("/api/business-profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ content: lastAssistant.content }),
+        body: JSON.stringify({ content: lastAssistantText }),
       });
       if (!res.ok) throw new Error();
       setSaveState("saved");
