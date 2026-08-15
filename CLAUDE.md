@@ -19,10 +19,14 @@ npm run dev                     # מריץ על http://localhost:3000
 
 ## הרצה דרך Docker (פריסה לשרת)
 ```bash
-cp .env.example .env             # להזין ANTHROPIC_API_KEY אמיתי; אופציונלי: APP_PORT
-docker compose up -d --build     # בונה ומריץ, זמין ב-http://<host>:3000 (או APP_PORT)
+cp .env.example .env             # להזין ANTHROPIC_API_KEY, APP_USERNAME, APP_PASSWORD אמיתיים
+docker compose up -d --build     # בונה ומריץ app + caddy
 ```
-`context/` ו-`outputs/` מחוברים כ-volumes (ראו `docker-compose.yml`) כדי שתיק העסק, יומן הזיכרון והתוצרים שנכתבים בזמן ריצה ישרדו ריסטארט/עדכון של הקונטיינר. **אין שכבת הרשאה באפליקציה עצמה** — אם חושפים אותה על IP:PORT ציבורי, יש לחסום גישה ברמת הפיירוול למי שצריך גישה בפועל.
+`context/` ו-`outputs/` מחוברים כ-volumes (ראו `docker-compose.yml`) כדי שתיק העסק, יומן הזיכרון והתוצרים שנכתבים בזמן ריצה ישרדו ריסטארט/עדכון של הקונטיינר.
+
+**הרשאה**: [proxy.ts](proxy.ts) שומר HTTP Basic Auth על כל האתר (כולל ה-API) לפי `APP_USERNAME`/`APP_PASSWORD` ב-`.env`. אם שניהם ריקים, השער מדלג על עצמו (כדי לא לנעול פיתוח מקומי בלי `.env`).
+
+**HTTPS**: `docker-compose.yml` כולל שירות `caddy` (reverse proxy) שמנפיק ומחדש תעודת HTTPS אמיתית אוטומטית דרך Let's Encrypt — קונטיינר ה-`app` עצמו כבר לא חשוף ישירות לאינטרנט (`expose` בלבד, לא `ports`), רק Caddy על 80/443. הדומיין מוגדר ב-[Caddyfile](Caddyfile); כרגע זה `139-59-145-176.sslip.io` (שירות DNS חינמי שממפה כל כתובת IP לשם דומיין תואם — `<ip-עם-מקפים>.sslip.io`), כי אין עדיין דומיין אמיתי. **כשיהיה דומיין אמיתי**: להחליף את השורה הראשונה ב-`Caddyfile` לשם הדומיין (ולוודא שה-DNS שלו מצביע ל-IP של השרת), ואז `docker compose up -d` — Caddy יטפל בתעודה החדשה לבד.
 
 ## מפת תיקיות
 ```
