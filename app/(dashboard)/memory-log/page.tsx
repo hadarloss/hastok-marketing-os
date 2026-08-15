@@ -3,6 +3,9 @@ import { Badge } from "@/components/ui/badge";
 import { AddMemoryEntryForm } from "@/components/memory/AddMemoryEntryForm";
 import { readMemoryLog, parseMemoryLog, MemoryEntryType } from "@/lib/fs/memoryLog";
 
+// Reads live data from disk — must not be statically cached at build time.
+export const dynamic = "force-dynamic";
+
 const TYPE_LABELS: Record<MemoryEntryType, string> = {
   correction: "תיקון",
   new_rule: "כלל חדש",

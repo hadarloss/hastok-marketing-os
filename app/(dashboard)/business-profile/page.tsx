@@ -1,6 +1,9 @@
 import { BusinessProfileClient } from "@/components/profile/BusinessProfileClient";
 import { readBusinessProfile } from "@/lib/fs/businessProfile";
 
+// Reads live data from disk — must not be statically cached at build time.
+export const dynamic = "force-dynamic";
+
 export default async function BusinessProfilePage() {
   const content = await readBusinessProfile();
 
