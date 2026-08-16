@@ -79,23 +79,44 @@ export function useAgentChat({ brandId, agentId, team }: UseAgentChatOptions) {
   // page that owns this hook), so it's safe to read as a plain value rather than memoizing.
   const [key] = useState(() => storageKey(brandId, agentId, team));
 
-  const [messages, setMessages] = useState<ChatMessage[]>(() => loadPersisted(key)?.messages ?? []);
-  const [activeAgentId, setActiveAgentId] = useState<string | undefined>(
-    () => loadPersisted(key)?.activeAgentId ?? agentId
-  );
-  const [routing, setRouting] = useState<RoutingInfo | null>(() => loadPersisted(key)?.routing ?? null);
+  // Starts empty (matching what SSR renders — sessionStorage doesn't exist on the server) and
+  // hydrates from sessionStorage in an effect after mount. Reading sessionStorage directly in
+  // the useState initializer would make the client's first render diverge from the server-
+  // rendered HTML whenever a persisted conversation actually exists, causing a hydration error.
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [activeAgentId, setActiveAgentId] = useState<string | undefined>(agentId);
+  const [routing, setRouting] = useState<RoutingInfo | null>(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // User-picked model override for this browser session only — never persisted, and
   // reset whenever this hook instance is recreated (e.g. switching agent/team/brand).
   const [modelOverride, setModelOverride] = useState<string | null>(null);
 
+  useEffect(() => {
+    const persisted = loadPersisted(key);
+    if (persisted?.messages?.length) {
+      setMessages(persisted.messages);
+      setActiveAgentId(persisted.activeAgentId ?? agentId);
+      setRouting(persisted.routing ?? null);
+    }
+    // Only ever run once per hook instance (on mount) — key/agentId are stable per instance.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Persist the conversation to sessionStorage on every change so navigating to another page
-  // and back (or a same-tab reload) restores it instead of resetting to empty.
+  // and back (or a same-tab reload) restores it instead of resetting to empty. Skips its very
+  // first run — on mount, `messages` is still the pre-hydration empty array in this effect's
+  // closure (the hydration effect's setMessages hasn't committed yet), so persisting then would
+  // briefly wipe sessionStorage right as the hydration effect is about to repopulate it.
   const keyRef = useRef(key);
   keyRef.current = key;
+  const skipNextPersistRef = useRef(true);
   useEffect(() => {
     if (typeof window === "undefined") return;
+    if (skipNextPersistRef.current) {
+      skipNextPersistRef.current = false;
+      return;
+    }
     if (messages.length === 0) {
       window.sessionStorage.removeItem(keyRef.current);
       return;
