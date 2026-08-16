@@ -13,9 +13,20 @@ export interface ChatMessage {
   resolvedModel?: string;
   /** Display-only file chips — not part of `content` for text attachments (those are inlined into the text). */
   attachmentLabels?: string[];
+  /** Set when this reply was classified as a finished deliverable and auto-saved to Outputs —
+   *  the chat bubble should show a short confirmation instead of the full text. */
+  outputSaved?: { outputId: string; format: string };
 }
 
 export interface RoutingInfo {
+  from: string;
+  to: string;
+  reason: string;
+}
+
+/** One autonomous specialist-to-specialist handoff within a turn (distinct from the initial
+ *  lead → specialist RoutingInfo) — a turn can have zero or more of these in sequence. */
+export interface HandoffHop {
   from: string;
   to: string;
   reason: string;
@@ -38,6 +49,7 @@ interface PersistedChatState {
   messages: ChatMessage[];
   routing: RoutingInfo | null;
   activeAgentId?: string;
+  handoffChain?: HandoffHop[];
 }
 
 /** sessionStorage key for a given chat "thread" — stable across page navigations within the
@@ -86,6 +98,7 @@ export function useAgentChat({ brandId, agentId, team }: UseAgentChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [activeAgentId, setActiveAgentId] = useState<string | undefined>(agentId);
   const [routing, setRouting] = useState<RoutingInfo | null>(null);
+  const [handoffChain, setHandoffChain] = useState<HandoffHop[]>([]);
   const [isStreaming, setIsStreaming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // User-picked model override for this browser session only — never persisted, and
@@ -98,6 +111,7 @@ export function useAgentChat({ brandId, agentId, team }: UseAgentChatOptions) {
       setMessages(persisted.messages);
       setActiveAgentId(persisted.activeAgentId ?? agentId);
       setRouting(persisted.routing ?? null);
+      setHandoffChain(persisted.handoffChain ?? []);
     }
     // Only ever run once per hook instance (on mount) — key/agentId are stable per instance.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -121,13 +135,13 @@ export function useAgentChat({ brandId, agentId, team }: UseAgentChatOptions) {
       window.sessionStorage.removeItem(keyRef.current);
       return;
     }
-    const state: PersistedChatState = { messages, routing, activeAgentId };
+    const state: PersistedChatState = { messages, routing, activeAgentId, handoffChain };
     try {
       window.sessionStorage.setItem(keyRef.current, JSON.stringify(state));
     } catch {
       // sessionStorage full/unavailable — conversation just won't survive navigation this time.
     }
-  }, [messages, routing, activeAgentId]);
+  }, [messages, routing, activeAgentId, handoffChain]);
 
   const dropTrailingEmptyAssistant = useCallback(() => {
     setMessages((prev) => {
@@ -144,6 +158,7 @@ export function useAgentChat({ brandId, agentId, team }: UseAgentChatOptions) {
       if ((!text.trim() && attachments.length === 0) || isStreaming) return;
       setError(null);
       setRouting(null);
+      setHandoffChain([]);
 
       // Drop any earlier turn left with empty content (e.g. an assistant reply that
       // errored out before any text arrived) — the API rejects empty message content,
@@ -218,6 +233,23 @@ export function useAgentChat({ brandId, agentId, team }: UseAgentChatOptions) {
                 };
                 return copy;
               });
+            } else if (event.type === "handoff") {
+              // A specialist autonomously handed off to another — start a fresh bubble for the
+              // next specialist's reply, which streams in via further token events.
+              resolvedAgentId = event.to;
+              assistantText = "";
+              setActiveAgentId(event.to);
+              setHandoffChain((prev) => [...prev, { from: event.from, to: event.to, reason: event.reason }]);
+              setMessages((prev) => [...prev, { role: "assistant", content: "", agentId: event.to }]);
+            } else if (event.type === "output_saved") {
+              setMessages((prev) => {
+                const copy = [...prev];
+                copy[copy.length - 1] = {
+                  ...copy[copy.length - 1],
+                  outputSaved: { outputId: event.outputId, format: event.format },
+                };
+                return copy;
+              });
             } else if (event.type === "done") {
               if (event.resolvedModel) {
                 setMessages((prev) => {
@@ -248,6 +280,7 @@ export function useAgentChat({ brandId, agentId, team }: UseAgentChatOptions) {
     isStreaming,
     error,
     routing,
+    handoffChain,
     activeAgentId,
     modelOverride,
     setModelOverride,
