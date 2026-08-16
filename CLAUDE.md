@@ -65,30 +65,22 @@ description: "תיאור קצר לכרטיס בחירה ולפרומפט הני�
 output_types: [type1, type2]
 order: number
 provider: anthropic     # anthropic (ברירת מחדל) | openai | omniroute — קובע איזה API/SDK ישמש לסוכן הזה
-model: claude-sonnet-5   # מזהה המודל אצל אותו provider; ניתן לדריסה לכל סוכן
+model: claude-haiku-4-5-20251001   # מזהה המודל אצל אותו provider; ניתן לדריסה לכל סוכן
 ```
 
-**בחירת מודל לפי תפקיד**: רוב הסוכנים (ספציאליסטים) על `provider: omniroute` עם קומבו לפי ארכיטיפ תפקידי (ראו "OmniRoute" למטה). שני מנהלי הצוות (גיא, ריי) על `provider: openai, model: gpt-5.1-mini` — תפקידם הוא רק החלטת ניתוב מובנית (tool-use בעל JSON קצר), אז מודל זול ומהיר של OpenAI מספיק, משפר את זמן התגובה בתחילת כל שיחה, ומצמצם תלות בשרשרת ה-fallback החיצונית של OmniRoute דווקא בשלב הקריטי הזה של השיחה. ערן (QA גלובלי) ותומר (עקביות מיתוגית) על קומבו `archetype-b-critical-qa` — תפקידם ביקורתי/השוואתי ולא בציר החם, אז שווה מודל חזק יותר לטובת דיוק הבדיקה.
+**בחירת מודל לפי תפקיד**: כל 37 הסוכנים המומחים (ספציאליסטים + ערן/QA + אוריתה/onboarding) על `provider: anthropic, model: claude-haiku-4-5-20251001` — המודל הזול ביותר בקטלוג Claude, ברירת המחדל ההיסטורית של המערכת לכתיבה. שני מנהלי הצוות (גיא, ריי) והמסווג הפנימי `classifyNextStep` (`lib/agents/router.ts`) — שלושת הרכיבים היחידים במערכת שמחליטים בפועל handoff (למי לנתב / האם להעביר לסוכן הבא) — על `provider: openai, model: GPT-5.6 Terra`: מודל גדול יותר עם זיכרון/הקשר מורחב, במכוון לא הזול ביותר, כי טעויות סיווג handoff הן בדיוק מה שגורם לתוצרים "ללכת לאיבוד" (ראו גם "תוצרים" למטה). כל סוכן OpenAI עתידי שלא אחראי על handoff אמור לרדת ל-`GPT-5.6 Luna` (הזול, `DEFAULT_OPENAI_MODEL`) — לא ל-Terra.
 
-## שלושה ספקי מודל (Anthropic + OpenAI + OmniRoute)
-כל סוכן בוחר ספק דרך שדה `provider` בפרונטמאטר (`anthropic` בברירת מחדל, `openai`, או `omniroute`). `lib/agents/router.ts` מנתב כל קריאה — גם ניתוב ההיררכיה (`routeToAgent`) וגם תשובת המומחה בסטרימינג (`streamAgentReply`) — לפי `provider` של הסוכן הרלוונטי:
-- `provider: anthropic` (ברירת מחדל) → `lib/anthropic/client.ts`, Messages API, `model` הוא מזהה Claude (למשל `claude-sonnet-5`).
-- `provider: openai` → `lib/openai/client.ts`, Responses API (`client.responses.create`), `model` הוא מזהה OpenAI (למשל `gpt-5.1`, `gpt-5.6-terra`).
-- `provider: omniroute` → `lib/omniroute/client.ts`, Chat Completions API (`client.chat.completions.create` — לא Responses API; זה ה-endpoint היחיד שמאומת כנתמך אצל OmniRoute), `model` הוא `"auto"` (ברירת מחדל, ניתוב אוטומטי של OmniRoute עצמו) או מזהה קומבו ספציפי שהוגדר בדשבורד של OmniRoute.
+## שני ספקי מודל (Anthropic + OpenAI)
+כל סוכן בוחר ספק דרך שדה `provider` בפרונטמאטר (`anthropic` בברירת מחדל או `openai`). `lib/agents/router.ts` מנתב כל קריאה — גם ניתוב ההיררכיה (`routeToAgent`) וגם תשובת המומחה בסטרימינג (`streamAgentReply`) — לפי `provider` של הסוכן הרלוונטי:
+- `provider: anthropic` (ברירת מחדל, וכיום כל 37 הסוכנים המומחים) → `lib/anthropic/client.ts`, Messages API, `model` הוא מזהה Claude (`claude-haiku-4-5-20251001` הזול ביותר).
+- `provider: openai` (שני מנהלי הצוות + המסווג הפנימי) → `lib/openai/client.ts`, Responses API (`client.responses.create`), `model` הוא `GPT-5.6 Luna` (זול, ברירת מחדל) או `GPT-5.6 Terra` (גדול, לרכיבי handoff).
 
 **כדי "לפרוס מחדש" סוכן על ספק אחר**: לשנות בקובץ ה-`skills/*.md` שלו את `provider` ואת `model` יחד למזהה המתאים לספק החדש — אין ברירת מחדל בין ספקים למודל. אין צורך בשינוי קוד נוסף.
 
-**מפתחות/הגדרות**: `ANTHROPIC_API_KEY` נדרש תמיד (גם מנהלי הצוות דורשים אותו כברירת מחדל). `OPENAI_API_KEY` נדרש רק אם סוכן בפועל (או מנהל צוות) עם `provider: openai` מעורב בבקשה. `OMNIROUTE_BASE_URL` (ו-`OMNIROUTE_API_KEY` אופציונלי) נדרש רק אם סוכן עם `provider: omniroute` מעורב — כולם ב-`.env.local` (dev) או `.env` (Docker), ראו `.env.example`. `app/api/chat/route.ts` בודק מראש (לפני פתיחת ה-stream) אילו ספקים ה-request הזה עלול להגיע אליהם ומחזיר שגיאת JSON ברורה אם ההגדרה הרלוונטית חסרה.
+**מפתחות/הגדרות**: `ANTHROPIC_API_KEY` נדרש כמעט תמיד (ברירת המחדל של רוב הסוכנים). `OPENAI_API_KEY` נדרש בפועל בכל שיחה שעוברת דרך מנהל צוות (גיא/ריי) או שמייצרת handoff אוטומטי — כלומר כמעט כל שיחה — כולם ב-`.env.local` (dev) או `.env` (Docker), ראו `.env.example`. `app/api/chat/route.ts` בודק מראש (לפני פתיחת ה-stream) אילו ספקים ה-request הזה עלול להגיע אליהם ומחזיר שגיאת JSON ברורה אם ההגדרה הרלוונטית חסרה.
 
-### OmniRoute — שער ריבוי-ספקים חינמי (self-hosted)
-[OmniRoute](https://github.com/diegosouzapw/OmniRoute) הוא שער MIT/open-source, ללא עלות מעבר לעלויות ה-API הישירות של הספקים שמאחוריו (340+ ספקים, כולל שכבה חינמית אצל חלקם) — מתארח עצמאית דרך `docker-compose.yml` (שירות `omniroute`, אימג' `diegosouzapw/omniroute:latest`, פורט `20128`, קבוע ל-volume `omniroute-data`).
-
-**סדר עדיפות המודלים (fallback chain) לא מוגדר בקוד של המערכת הזו** — הוא מוגדר ב-**Dashboard** של OmniRoute עצמו (`http://localhost:20128` אחרי שהשירות רץ), דרך "Combo" עם אסטרטגיית `priority`: רשימה מסודרת של מודלים ש-OmniRoute מנסה אחד אחרי השני. ה-`model` בפרונטמאטר של הסוכן אז מצביע על שם ה-Combo שהוגדר שם.
-
-**סטטוס נוכחי**: מוגדר וחי. 4 ספקים מחוברים (Gemini, Groq, OpenRouter, Z.AI/GLM) ו-5 קומבואים לפי ארכיטיפ תפקידי:
-`archetype-a-routing` (ניתוב), `archetype-b-critical-qa` (ביקורת), `archetype-c-strategic-foundational` (יסודות), `archetype-d-ongoing-content` (רוב הסוכנים), `archetype-e-high-volume-templates` (תבניות בנפח). כל 39 הסוכנים מוגדרים כרגע על `provider: omniroute` עם המודל המתאים.
-מודלי ה-fallback הספציפיים בכל קומבו מוגדרים ב-Dashboard של OmniRoute עצמו — לא בקוד של הריפו — ומבוססים על הקטלוג החי של המודלים שם, לא בהכרח על שמות המודלים המדויקים בכל תיעוד חיצוני.
-Mistral, Cerebras, SiliconFlow ו-Cloudflare AI **לא** חוברו — אם רוצים אותם, צריך מפתח API בפועל אצל אותו ספק, ואז `omniroute keys add <provider> <key>` (לרשימת ה-6 בקטלוג המובנה) או `omniroute nodes add --provider ... --base-url ...` (לספקים מותאמים אישית).
+### OmniRoute — עדיין נתמך בקוד, לא בשימוש כרגע
+`provider: omniroute` נשאר תקף ברמת קוד (`lib/omniroute/client.ts`, וטיפול ב-`router.ts`) לשימוש עתידי, אבל נכון להיום **אף סוכן לא מוגדר עליו** — כל 39 הסוכנים עברו ל-Anthropic/OpenAI ישירות (ללא שרשרת fallback חיצונית). `OMNIROUTE_BASE_URL`/`OMNIROUTE_API_KEY` הפכו לאופציונליים לגמרי; שירות ה-`omniroute` ב-`docker-compose.yml` אינו נדרש להרצה. [OmniRoute](https://github.com/diegosouzapw/OmniRoute) עצמו הוא שער MIT/open-source מרובה-ספקים — אם ירצו בעתיד להחזיר סוכן אליו, ראו את התיעוד ההיסטורי בהיסטוריית ה-git של קובץ זה.
 
 ## תיקוני ספק שבוצעו (Known spec deviations)
 מסמך ה-`PROJECT_SPEC.md` המקורי הכיל שתי אי-התאמות; שתיהן טופלו וקבועות מכאן ואילך:

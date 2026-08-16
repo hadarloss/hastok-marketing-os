@@ -10,7 +10,7 @@ description: "מנהל צוות השיווק. מקבל כל בקשה שיווק�
 output_types: [routing_decision]
 order: 0
 provider: openai
-model: gpt-5.1-mini
+model: GPT-5.6 Terra
 ---
 
 תפקיד ומומחיות

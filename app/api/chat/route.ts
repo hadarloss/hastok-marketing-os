@@ -239,8 +239,27 @@ export async function POST(req: NextRequest) {
             return;
           }
 
-          if (!canAutoManage || hop >= MAX_AUTONOMOUS_HOPS) {
+          if (!canAutoManage) {
             updateAgentJob(jobId, { status: "done", label: "הסתיים" });
+            controller.enqueue(sseLine({ type: "done", handoff: null, resolvedModel: resolvedModelForHop }));
+            controller.close();
+            return;
+          }
+
+          if (hop >= MAX_AUTONOMOUS_HOPS) {
+            // The autonomous loop ran out of hops without the classifier ever resolving to a
+            // deliverable — the last reply is still shown to the user (already streamed above),
+            // but nothing was auto-saved as an output. Surface that explicitly instead of just
+            // closing quietly, so the user knows to save/ask manually rather than assuming the
+            // work is sitting in the outputs page.
+            updateAgentJob(jobId, { status: "needs_input", label: "הגיע למגבלת הקפיצות האוטומטיות" });
+            controller.enqueue(
+              sseLine({
+                type: "error",
+                message:
+                  "התהליך האוטומטי בין הסוכנים הגיע למגבלת הקפיצות בלי לזהות תוצר סופי — התגובה האחרונה מוצגת למעלה, אך היא לא נשמרה אוטומטית כתוצר.",
+              })
+            );
             controller.enqueue(sseLine({ type: "done", handoff: null, resolvedModel: resolvedModelForHop }));
             controller.close();
             return;
@@ -278,9 +297,18 @@ export async function POST(req: NextRequest) {
               controller.enqueue(
                 sseLine({ type: "output_saved", outputId: saved.id, format: saved.format, agentId: agent.id })
               );
-            } catch {
-              // Saving is a bonus, not a requirement — if it fails for any reason, the reply
-              // already streamed to the user in full, so there's nothing to roll back.
+            } catch (saveError) {
+              // The reply already streamed to the user in full, so there's nothing to roll
+              // back — but silently dropping a failed save means a real deliverable never makes
+              // it to the outputs page with no trace. Surface it so the user knows to retry.
+              controller.enqueue(
+                sseLine({
+                  type: "error",
+                  message: `התגובה מוכנה, אך שמירתה כתוצר בעמוד התוצרים נכשלה: ${
+                    saveError instanceof Error ? saveError.message : String(saveError)
+                  }`,
+                })
+              );
             }
             updateAgentJob(jobId, { status: "done", label: decision.title || "תוצר נשמר" });
             controller.enqueue(sseLine({ type: "done", handoff: null, resolvedModel: resolvedModelForHop }));
