@@ -526,7 +526,7 @@ const NEXT_STEP_TOOL_NAME = "decide_next_step";
 // Pinned model id, not the "-latest" alias — OmniRoute intermittently fails to resolve alias
 // names ("unknown provider for model gemini-flash-latest") even though the underlying model is
 // healthy; a concrete id like this one has tested reliably across dozens of repeated calls.
-const NEXT_STEP_CLASSIFIER_MODEL = "gemini/gemini-2.0-flash-lite";
+const NEXT_STEP_CLASSIFIER_MODEL = "gemini/gemini-3.1-flash-lite";
 
 const NEXT_STEP_SYSTEM_PROMPT = [
   "את/ה מסווג/ת החלטות פנימי בצוות AI שיווקי/מיתוגי — לא פונה למשתמש ישירות.",
